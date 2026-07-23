@@ -167,24 +167,52 @@ export function get_core_version() {
 	return core;
 };
 
-export function proxify(url, proxy) {
-	if (!length(proxy)) {
-		return url;
-	}
-	return rtrim(proxy, '/') + '/' + url;
+// 内置的 GitHub 加速镜像，不对外暴露、不可在 LuCI 界面切换。
+// 请求一律先走镜像，镜像失败（网络问题/镜像失效等）再自动回退到 GitHub 直连。
+const CORE_UPDATE_MIRROR = 'https://gh.445568.xyz';
+
+function proxify(url) {
+	return rtrim(CORE_UPDATE_MIRROR, '/') + '/' + url;
 };
 
-export function fetch_core_release(channel, proxy) {
-	const api_url = (channel == 'beta')
-		? 'https://api.github.com/repos/SagerNet/sing-box/releases?per_page=15'
-		: 'https://api.github.com/repos/SagerNet/sing-box/releases/latest';
-
-	const process = popen(`curl -fsSL --max-time 15 '${proxify(api_url, proxy)}'`);
+// 先试镜像，失败则直连，返回解析后的 JSON（失败返回 null）
+function fetch_json_with_fallback(url) {
+	let process = popen(`curl -fsSL --max-time 15 '${proxify(url)}'`);
 	let data = null;
 	if (process) {
 		data = json(process);
 		process.close();
 	}
+	if (data != null) {
+		return data;
+	}
+	process = popen(`curl -fsSL --max-time 15 '${url}'`);
+	if (process) {
+		data = json(process);
+		process.close();
+	}
+	return data;
+};
+
+// 先试镜像下载，失败则直连下载
+function download_with_fallback(url, dest) {
+	if (system(`curl -fsSL --max-time 120 -o '${dest}' '${proxify(url)}'`) == 0) {
+		return true;
+	}
+	system(`rm -f '${dest}'`);
+	if (system(`curl -fsSL --max-time 120 -o '${dest}' '${url}'`) == 0) {
+		return true;
+	}
+	system(`rm -f '${dest}'`);
+	return false;
+};
+
+export function fetch_core_release(channel) {
+	const api_url = (channel == 'beta')
+		? 'https://api.github.com/repos/SagerNet/sing-box/releases?per_page=15'
+		: 'https://api.github.com/repos/SagerNet/sing-box/releases/latest';
+
+	const data = fetch_json_with_fallback(api_url);
 	if (!data) {
 		return null;
 	}
@@ -204,7 +232,7 @@ export function fetch_core_release(channel, proxy) {
 	return data;
 };
 
-export function update_core(channel, proxy) {
+export function update_core(channel) {
 	const result = { success: false, updated: false, current: '', latest: '', message: '' };
 
 	const pkg_manager = detect_pkg_manager();
@@ -221,7 +249,7 @@ export function update_core(channel, proxy) {
 
 	result.current = get_core_version();
 
-	const release = fetch_core_release(channel, proxy);
+	const release = fetch_core_release(channel);
 	if (!release) {
 		result.message = 'failed to query release info from github';
 		return result;
@@ -243,31 +271,41 @@ export function update_core(channel, proxy) {
 		return result;
 	}
 
-	const ext = (pkg_manager == 'opkg') ? '.ipk' : '.apk';
+	// 优先找本机包管理器对应的后缀，找不到再退而求其次找另一种，
+	// 避免因为某个版本 release 里只发布了 .apk 或只发布了 .ipk 就直接判定失败。
+	const ext_candidates = (pkg_manager == 'opkg') ? ['.ipk', '.apk'] : ['.apk', '.ipk'];
 	let asset_url = null;
-	for (let i = 0; i < length(release.assets); i++) {
-		const name = release.assets[i].name ?? '';
-		if (index(name, 'openwrt') >= 0 && index(name, arch) >= 0 && index(name, ext) >= 0) {
-			asset_url = release.assets[i].browser_download_url;
+	let matched_ext = null;
+	for (let ext in ext_candidates) {
+		for (let i = 0; i < length(release.assets); i++) {
+			const name = release.assets[i].name ?? '';
+			if (index(name, 'openwrt') >= 0 && index(name, arch) >= 0 && index(name, ext) >= 0) {
+				asset_url = release.assets[i].browser_download_url;
+				matched_ext = ext;
+				break;
+			}
+		}
+		if (asset_url) {
 			break;
 		}
 	}
 
 	if (!asset_url) {
-		result.message = `no matching ${pkg_manager} package found for architecture ${arch}`;
+		result.message = `no matching package found for architecture ${arch}`;
 		return result;
 	}
 
-	const tmp_file = `/tmp/sing-box-core${ext}`;
-	const download_ok = system(`curl -fsSL --max-time 120 -o '${tmp_file}' '${proxify(asset_url, proxy)}'`) == 0;
+	// 落盘到 /var/run/momo（run 目录）而不是 /tmp，避免下载核心包占用运行内存。
+	const paths = get_paths();
+	const tmp_file = `${paths.run_dir}/sing-box-core${matched_ext}`;
+	const download_ok = download_with_fallback(asset_url, tmp_file);
 	if (!download_ok) {
-		system(`rm -f '${tmp_file}'`);
 		result.message = 'failed to download core package';
 		return result;
 	}
 
 	let install_ok;
-	if (pkg_manager == 'opkg') {
+	if (matched_ext == '.ipk') {
 		install_ok = system(`opkg install --force-reinstall '${tmp_file}'`) == 0;
 	} else {
 		install_ok = system(`apk add --allow-untrusted '${tmp_file}'`) == 0;
