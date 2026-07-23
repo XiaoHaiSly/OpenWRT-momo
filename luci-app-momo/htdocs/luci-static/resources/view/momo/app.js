@@ -180,10 +180,6 @@ return view.extend({
         o = s.option(form.Flag, 'core_only', _('Core Only'));
         o.rmempty = false;
 
-        o = s.option(form.Value, 'core_update_proxy', _('Core Update Proxy'));
-        o.placeholder = 'https://gh.445568.xyz';
-        o.description = _('GitHub accelerator prefix used when downloading core update packages. Leave empty to fetch directly.');
-
         s = m.section(form.NamedSection, 'procd', 'procd', _('procd Config'));
 
         s.tab('general', _('General Config'));
