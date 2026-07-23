@@ -117,6 +117,7 @@ return view.extend({
         };
 
         o = s.option(form.Button, 'open_dashboard');
+        o.inputstyle = 'action';
         o.inputtitle = _('Open Dashboard');
         o.onclick = function () {
             return momo.openDashboard();
@@ -229,6 +230,12 @@ return view.extend({
         o.datatype = 'uinteger';
         o.placeholder = _('Unlimited');
 
-        return m.render();
+        return m.render().then(function (node) {
+            node.querySelectorAll('.cbi-button').forEach(function (btn) {
+                btn.style.minWidth = '150px';
+                btn.style.textAlign = 'center';
+            });
+            return node;
+        });
     }
 });
