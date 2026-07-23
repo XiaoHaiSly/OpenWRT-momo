@@ -5,16 +5,6 @@
 import { popen } from 'fs';
 import { get_paths, merge_exists, get_users, get_groups, get_cgroups, load_profile, update_core } from '/etc/momo/ucode/include.uc';
 
-function get_core_update_proxy() {
-	let proxy = '';
-	const process = popen('uci -q get momo.config.core_update_proxy');
-	if (process) {
-		proxy = trim(process.read('all'));
-		process.close();
-	}
-	return proxy;
-};
-
 const methods = {
 	get_paths: {
 		call: function() {
@@ -114,8 +104,7 @@ const methods = {
 		args: { channel: 'channel' },
 		call: function(req) {
 			const channel = (req.args?.channel == 'beta') ? 'beta' : 'stable';
-			const proxy = get_core_update_proxy();
-			return update_core(channel, proxy);
+			return update_core(channel);
 		}
 	}
 };
