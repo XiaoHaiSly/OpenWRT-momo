@@ -18,6 +18,13 @@ function updateStatus(element, running) {
     return element;
 }
 
+function updateDashboardButton(running) {
+    const btn = document.querySelector('.cbi-button[name*="open_dashboard"]');
+    if (btn) {
+        btn.disabled = !running;
+    }
+}
+
 function renderCoreVersion(version) {
     return updateCoreVersion(E('input', { id: 'core_version_value', style: 'border: unset;', readonly: '' }), version);
 }
@@ -92,6 +99,7 @@ return view.extend({
         poll.add(function () {
             return L.resolveDefault(momo.status()).then(function (running) {
                 updateStatus(document.getElementById('core_status'), running);
+                updateDashboardButton(running);
             });
         });
 
@@ -119,22 +127,23 @@ return view.extend({
         o = s.option(form.Button, 'open_dashboard');
         o.inputstyle = 'action';
         o.inputtitle = _('Open Dashboard');
+        o.readonly = !running;
         o.onclick = function () {
             return momo.openDashboard();
         };
 
         o = s.option(form.Button, 'update_core_stable');
         o.inputstyle = 'positive';
-        o.inputtitle = _('更新 Stable 核心');
+        o.inputtitle = _('Stable 核心');
         o.onclick = function () {
             return handleCoreUpdate('stable');
         };
 
         o = s.option(form.Button, 'update_core_beta');
         o.inputstyle = 'positive';
-        o.inputtitle = _('更新 Beta 核心');
+        o.inputtitle = _('alpha 核心');
         o.onclick = function () {
-            return handleCoreUpdate('beta');
+            return handleCoreUpdate('alpha');
         };
 
         s = m.section(form.NamedSection, 'config', 'config', _('App Config'));
@@ -232,7 +241,8 @@ return view.extend({
 
         return m.render().then(function (node) {
             node.querySelectorAll('.cbi-button').forEach(function (btn) {
-                btn.style.minWidth = '150px';
+                btn.style.minWidth = '90px';
+                btn.style.padding = '3px 10px';
                 btn.style.textAlign = 'center';
             });
             return node;
