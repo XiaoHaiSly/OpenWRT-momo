@@ -134,16 +134,16 @@ return view.extend({
 
         o = s.option(form.Button, 'update_core_stable');
         o.inputstyle = 'positive';
-        o.inputtitle = _('更新 Stable 核心');
+        o.inputtitle = _('Stable 核心');
         o.onclick = function () {
             return handleCoreUpdate('stable');
         };
 
         o = s.option(form.Button, 'update_core_beta');
         o.inputstyle = 'positive';
-        o.inputtitle = _('更新 Beta 核心');
+        o.inputtitle = _('alpha 核心');
         o.onclick = function () {
-            return handleCoreUpdate('beta');
+            return handleCoreUpdate('alpha');
         };
 
         s = m.section(form.NamedSection, 'config', 'config', _('App Config'));
