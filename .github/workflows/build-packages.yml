@@ -1,5 +1,11 @@
 name: build-packages
 
+# momo 和 luci-app-momo 都是纯脚本/资源包，不含任何编译产物（Architecture: all），
+# 所以不需要按 CPU 架构分别编译，每个分支编译一次即可在所有设备上安装。
+# 分支本身仍然要分开编译，因为不同分支的包格式不同：
+#   openwrt-24.10            -> opkg，产出 .ipk
+#   openwrt-25.12 / SNAPSHOT -> apk， 产出 .apk
+
 on:
   workflow_dispatch:
   push:
@@ -8,50 +14,16 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.arch }}-${{ matrix.branch }} build
+    name: ${{ matrix.branch }} build
     runs-on: ubuntu-latest
     continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
-        arch:
-          - arm_cortex-a5_vfpv4
-          - arm_cortex-a7_neon-vfpv4
-          - arm_cortex-a8_vfpv3
-          - arm_cortex-a9
-          - arm_cortex-a9_vfpv3-d16
-          - arm_cortex-a9_neon
-          - arm_cortex-a15_neon-vfpv4
-          - aarch64_cortex-a53
-          - aarch64_cortex-a72
-          - aarch64_cortex-a76
-          - aarch64_generic
-          - mips_24kc
-          - mips_mips32
-          - mipsel_24kc
-          - mipsel_24kc_24kf
-          - mipsel_74kc
-          - mipsel_mips32
-          - mips64_octeonplus
-          - riscv64_riscv64
-          - riscv64_generic
-          - loongarch64_generic
-          - i386_pentium4
-          - x86_64
-        # openwrt-24.10 ships opkg (produces .ipk)
-        # openwrt-25.12 / SNAPSHOT ship apk by default (produces .apk)
-        # building both branches gives you both package formats
         branch:
           - openwrt-24.10
           - openwrt-25.12
           - SNAPSHOT
-        exclude:
-          - arch: riscv64_riscv64
-            branch: openwrt-25.12
-          - arch: riscv64_riscv64
-            branch: SNAPSHOT
-          - arch: riscv64_generic
-            branch: openwrt-24.10
 
     steps:
       - name: checkout
@@ -60,21 +32,21 @@ jobs:
       - name: build
         uses: openwrt/gh-action-sdk@main
         env:
-          ARCH: ${{ matrix.arch }}-${{ matrix.branch }}
+          ARCH: x86_64-${{ matrix.branch }}
           FEEDNAME: momo
           PACKAGES: luci-app-momo
           NO_REFRESH_CHECK: true
 
-      - name: rename packages
+      - name: collect packages
         run: |
           mkdir -p dist
-          find bin/packages/${{ matrix.arch }}/momo -maxdepth 1 -type f \( -name '*.ipk' -o -name '*.apk' \) \
+          find bin/packages/x86_64/momo -maxdepth 1 -type f \( -name '*.ipk' -o -name '*.apk' \) \
             -exec sh -c 'cp "$1" "dist/${1##*/}"' _ {} \;
 
       - name: upload
         uses: actions/upload-artifact@v7
         with:
-          name: momo_${{ matrix.arch }}-${{ matrix.branch }}
+          name: momo_${{ matrix.branch }}
           path: dist/*
           if-no-files-found: ignore
 
