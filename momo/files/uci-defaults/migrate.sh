@@ -54,6 +54,10 @@ section_mixin=$(uci -q get momo.mixin); [ -z "$section_mixin" ] && {
 # since v1.2.1
 config_clear_at_stop=$(uci -q get momo.log.clear_at_stop); [ -z "$config_clear_at_stop" ] && uci set momo.log.clear_at_stop=1
 
+# since v1.2.2
+# core_update_proxy 改为内置在代码里，不再作为可配置项，清理旧值
+uci -q get momo.config.core_update_proxy > /dev/null 2>&1 && uci del momo.config.core_update_proxy
+
 # commit
 uci commit momo
 
