@@ -15,7 +15,7 @@ define Package/momo
   TITLE:=Transparent Proxy with sing-box on OpenWrt.
   URL:=https://github.com/nikkinikki-org
   PKGARCH:=all
-  DEPENDS:=+ca-bundle +curl firewall4 +ip-full +kmod-inet-diag +kmod-nft-socket +kmod-nft-tproxy +kmod-tun +kmod-dummy
+  DEPENDS:=+ca-bundle +curl firewall4 +ip-full +kmod-inet-diag +kmod-nft-socket +kmod-nft-tproxy +kmod-tun +kmod-dummy +sing-box
 endef
 
 define Package/momo/conffiles
